@@ -227,10 +227,37 @@ table.commands tr:last-child td { border-bottom: none; }
 
 .callout.warn { border-left-color: var(--warn); }
 
+.gallery {
+  column-count: 2;
+  column-gap: 18px;
+  margin: 22px 0 0;
+}
+.shot {
+  margin: 0 0 18px;
+  break-inside: avoid;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px;
+}
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+.shot figcaption {
+  font-size: 13px;
+  color: var(--text-dim);
+  padding: 10px 4px 2px;
+}
+.shot figcaption strong { color: var(--text); font-weight: 600; }
+
 @media (max-width: 600px) {
   .feature-grid { grid-template-columns: 1fr; }
   table.commands { font-size: 13px; }
   table.commands td, table.commands th { padding: 8px 10px; }
+  .gallery { column-count: 1; }
 }
 
 footer.site {

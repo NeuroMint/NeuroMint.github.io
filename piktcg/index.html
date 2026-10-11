@@ -199,6 +199,10 @@ export const ALERTABLE_CHANGE_TYPES: ReadonlySet&lt;ChangeType&gt; = new Set([
         <h4>Test-alert preview</h4>
         <p><code>/pricedrop</code> renders a real alert embed on demand without needing to wait for (or fake) an actual price change, useful for reviewing formatting changes.</p>
       </div>
+      <div class="feature">
+        <h4>Self-serve alert roles</h4>
+        <p>A persistent role-menu message lets members toggle direct pings by retailer or by set, on top of the shared alert channels, no admin involvement needed.</p>
+      </div>
     </div>
 
     <h2>Commands</h2>
@@ -225,6 +229,36 @@ export const ALERTABLE_CHANGE_TYPES: ReadonlySet&lt;ChangeType&gt; = new Set([
         <tr><td><code>/ping-set-url</code></td><td>Ping the alpha tester role for this URL's alerts even on the regular, non-urgent, polling schedule.</td></tr>
       </tbody>
     </table>
+
+    <h2>Live in Discord</h2>
+    <p>Real alerts from the production bot, not mockups.</p>
+
+    <div class="gallery">
+      <figure class="shot">
+        <img src="img/delta-reign-urgent.png" alt="Three restock alerts in a Delta Reigns Alerts channel, the middle one marked URGENT, each tagging the role and showing retailer, price, link, and stock.">
+        <figcaption><strong>Cross-retailer alert channel.</strong> Delta Reign listings are tagged into their own channel regardless of which retailer they're at, with the second alert hitting the urgent tier.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/price-drop.png" alt="A single price-drop alert embed for a Reshiram and Charizard GX Premium Collection, showing the old and new price and percentage change.">
+        <figcaption><strong>Price-drop alert.</strong> Shows the dollar and percentage change alongside current stock status, not just the new price.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/digest.png" alt="A daily price-drop digest message listing nine price drops from the last 24 hours across multiple retailers.">
+        <figcaption><strong>Daily digest.</strong> A rollup of every price drop in the last 24 hours, for anyone who doesn't watch the live feed.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/restock-pair.png" alt="Two restock alerts for 30th Celebration sets at Swap Itt, each showing price, link, and in-stock status.">
+        <figcaption><strong>Restock alerts.</strong> The baseline alert type, fired the moment <code>detectChange()</code> classifies a listing as RESTOCK.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/alpha-tester-urgent.png" alt="Two URGENT restock alerts pinging an Alpha Tester role, for a 30th Celebration Booster Bundle and a Delta Reign Elite Trainer Box.">
+        <figcaption><strong>Urgent tier in action.</strong> <code>/ping-set-url</code>-flagged listings ping a role directly the moment the fast poller catches them.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/alert-roles.png" alt="A role-menu message titled Alert Roles, with buttons to toggle pings by retailer or by set.">
+        <figcaption><strong>Self-serve alert roles.</strong> A persistent button menu, posted once, lets members opt into pings by retailer or by set without any admin involvement.</figcaption>
+      </figure>
+    </div>
 
     <h2>Challenges</h2>
 
