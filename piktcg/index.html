@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PikTCG — Case Study · Tom</title>
+<meta name="description" content="A Discord-first bot monitoring 20+ Australian Pokemon TCG retailers for restocks and price drops in real time, built with a two-tier polling system and per-retailer anti-bot handling.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap">
+    <div class="brand">tom<span>.</span>dev</div>
+    <nav class="site">
+      <a href="../#projects">Projects</a>
+      <a href="../#about">About</a>
+      <a href="https://github.com/NeuroMint">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+
+    <a class="back-link" href="../">&larr; back to projects</a>
+
+    <div class="eyebrow">Case Study</div>
+    <h1>PikTCG</h1>
+    <p class="lede">A Discord-first bot that monitors 20+ Australian Pokémon TCG retailers for restocks and price drops in real time, built on a two-tier polling system designed to stay fast without tripping anti-bot defenses.</p>
+
+    <div class="tags">
+      <span class="tag">TypeScript</span>
+      <span class="tag">Node.js 20</span>
+      <span class="tag">PostgreSQL</span>
+      <span class="tag">Prisma</span>
+      <span class="tag">discord.js v14</span>
+      <span class="tag">Playwright</span>
+      <span class="tag">Vitest</span>
+      <span class="tag">Docker</span>
+      <span class="tag">Railway</span>
+    </div>
+
+    <div class="links">
+      <a class="btn primary" href="https://github.com/NeuroMint/PikTCG">View repository</a>
+    </div>
+
+    <h2>Overview</h2>
+    <p>Pokémon TCG restocks for hyped sealed product (booster boxes, Elite Trainer Boxes) often sell out within minutes of going live, and scalpers running their own monitoring tools get there first. PikTCG exists to level that: a Discord bot that checks tracked listings across Australian retailers and posts the moment something restocks or drops in price, before most people would think to check.</p>
+    <p>It started as a scoped MVP, not a prototype. Before writing the ingestion code, I wrote a product requirements doc, user personas, and a deliberately narrow 30-day MVP scope (sealed-product monitoring only, no marketplace, no billing yet) to avoid building toward an imagined feature set instead of a real one.</p>
+
+    <h2>My role, and how AI fits into this</h2>
+    <p>I built this directing Claude Code as my day-to-day pair programmer, and I want to be specific about what that means rather than vague about it. I made the architecture decisions: the two-tier polling split, which anti-bot strategy to use per retailer, the rate-limit backoff design, the decision to fail loudly instead of guessing at missing data. Claude Code wrote a large share of the actual implementation and tests under that direction, and did a meaningful share of the investigative work too, things like diagnosing a Railway deployment failure down to a missing shared library in the runtime image, or working out from a captured page which of two different price sources on a Next.js page to trust.</p>
+    <p>I treat it as a fast, capable collaborator I'm responsible for reviewing and understanding every line from, not a black box. Every claim in the "Challenges" section below is something I can walk through in detail, because I had to actually understand it to direct the fix.</p>
+
+    <h2>Architecture</h2>
+    <p>Ingestion is split by how each retailer's site actually works, discovered per-retailer rather than assumed, then normalized behind one adapter interface. Everything downstream (polling, rate limiting, alerting) doesn't know or care which adapter strategy produced a given price/stock reading.</p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 920 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Architecture diagram: four adapter types feed two poller tiers, which share a rate limiter, write to Postgres, and trigger Discord alerts.">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#4fd1c5"/>
+          </marker>
+        </defs>
+        <style>
+          .box { fill:#171c2a; stroke:#232838; stroke-width:1.5; rx:10; }
+          .box-accent { fill:#171c2a; stroke:#4fd1c5; stroke-width:1.5; rx:10; }
+          .lbl { font-family:'JetBrains Mono',monospace; font-size:12px; fill:#e6e9f0; }
+          .lbl-dim { font-family:'JetBrains Mono',monospace; font-size:10.5px; fill:#8b93a7; }
+          .edge { stroke:#4fd1c5; stroke-width:1.5; fill:none; marker-end:url(#arrow); }
+        </style>
+
+        <!-- adapters column -->
+        <rect class="box" x="10" y="10" width="190" height="52"/>
+        <text class="lbl" x="25" y="32">Shopify adapter</text>
+        <text class="lbl-dim" x="25" y="48">JSON product API</text>
+
+        <rect class="box" x="10" y="72" width="190" height="52"/>
+        <text class="lbl" x="25" y="94">WooCommerce adapter</text>
+        <text class="lbl-dim" x="25" y="110">Store REST API</text>
+
+        <rect class="box" x="10" y="134" width="190" height="52"/>
+        <text class="lbl" x="25" y="156">Square/EditMySite</text>
+        <text class="lbl-dim" x="25" y="172">JSON product API</text>
+
+        <rect class="box" x="10" y="196" width="190" height="52"/>
+        <text class="lbl" x="25" y="218">Playwright adapter</text>
+        <text class="lbl-dim" x="25" y="234">bot-managed sites</text>
+
+        <text class="lbl-dim" x="20" y="268">4 ingestion strategies,</text>
+        <text class="lbl-dim" x="20" y="282">1 common interface</text>
+
+        <!-- arrows into pollers -->
+        <path class="edge" d="M200,36 C260,36 260,90 320,90"/>
+        <path class="edge" d="M200,98 C260,98 260,90 320,90"/>
+        <path class="edge" d="M200,160 C260,160 260,220 320,220"/>
+        <path class="edge" d="M200,222 C260,222 260,220 320,220"/>
+
+        <!-- pollers column -->
+        <rect class="box-accent" x="320" y="62" width="180" height="56"/>
+        <text class="lbl" x="335" y="86">Regular poller</text>
+        <text class="lbl-dim" x="335" y="102">every N minutes</text>
+
+        <rect class="box-accent" x="320" y="192" width="180" height="56"/>
+        <text class="lbl" x="335" y="216">Urgent poller</text>
+        <text class="lbl-dim" x="335" y="232">~12s, jittered</text>
+
+        <!-- rate limiter -->
+        <path class="edge" d="M500,90 C560,90 560,180 620,180"/>
+        <path class="edge" d="M500,220 C560,220 560,180 620,180"/>
+        <rect class="box" x="620" y="152" width="190" height="56"/>
+        <text class="lbl" x="635" y="176">Shared rate limiter</text>
+        <text class="lbl-dim" x="635" y="192">cooldown + backoff</text>
+
+        <!-- down to postgres -->
+        <path class="edge" d="M715,208 L715,268"/>
+        <rect class="box" x="620" y="270" width="190" height="56"/>
+        <text class="lbl" x="635" y="294">PostgreSQL</text>
+        <text class="lbl-dim" x="635" y="310">Prisma, snapshot history</text>
+
+        <!-- down to discord -->
+        <path class="edge" d="M715,326 L715,386"/>
+        <rect class="box-accent" x="610" y="388" width="210" height="28" rx="14"/>
+        <text class="lbl" x="645" y="407">Discord alert</text>
+      </svg>
+    </div>
+
+    <h3>Data model</h3>
+    <p>Postgres via Prisma, centered on <code>Retailer</code>, <code>Product</code>, <code>RetailerProduct</code> (one product tracked at one retailer, with its own URL/external ID), and <code>PriceSnapshot</code> (one row per observation). A pure <code>detectChange()</code> function diffs the latest snapshot against the previous one to classify <code>RESTOCK</code> / <code>OUT_OF_STOCK</code> / <code>PRICE_DROP</code> / <code>PRICE_INCREASE</code>, kept separate from the fetching/polling code so it's trivially unit-testable without a network call or a database.</p>
+
+    <h2>Challenges</h2>
+
+    <h3>1. No single scraping strategy works across every retailer</h3>
+    <p>Four different retailer platforms needed four different approaches, each confirmed against a real response before being trusted, not assumed from documentation. Shopify stores expose a <code>/products/&#123;handle&#125;.js</code> endpoint built for the storefront's own JS to check live price/stock, found the hard way after the similarly-named <code>.json</code> REST endpoint turned out to silently omit the <code>available</code> field entirely. WooCommerce stores have a clean Store REST API. A Square Online storefront turned up a well-structured JSON product endpoint via its DevTools network tab. And two retailers (EB Games, BIG W) run real bot-management that fingerprints the client itself, not just request headers, blocking even a realistic <code>fetch()</code> with full browser headers, those two needed an actual headless Chromium instance via Playwright.</p>
+    <div class="callout"><strong>Design principle</strong>If a page's price or stock signal can't be confidently read, the adapter throws rather than reports a guess. A restock bot's entire value is trust, a single confidently-wrong alert is worse than a missed one.</div>
+
+    <h3>2. Fast alerts without tripping anti-bot defenses</h3>
+    <p>Hyped restocks need checking far more often than a comfortable background poll rate allows, but checking too often is exactly what gets an IP rate-limited or blocked. The fix was a two-tier poller: a slow regular cycle across everything tracked, and a separate fast ~12-second tier for a small, deliberately-capped set of "urgent" listings, sharing one rate limiter so a block on either tier backs off both.</p>
+    <p>Backoff starts at 1 minute and doubles on each repeated block up to a 15-minute cap, or uses the retailer's own <code>Retry-After</code> header when it sends one. The urgent tier's interval is randomized ±20% rather than fixed, a real visitor doesn't reload a page every exactly 12.000 seconds, and that mechanical regularity is itself a detection signal independent of raw request volume. For the one retailer needing a real browser, the adapter reuses a single persistent browser context across checks instead of a fresh session each time, since a new anonymous session hitting the same page every 12 seconds forever reads as more bot-like than one returning session checking repeatedly.</p>
+
+    <div class="code-caption">src/ingestion/urgentPoller.ts — jittered rescheduling instead of a fixed interval</div>
+<pre>function scheduleNext(): NodeJS.Timeout {
+  const jitterMs = baseMs * JITTER_FRACTION * (Math.random() * 2 - 1);
+  const delayMs = Math.max(0, baseMs + jitterMs);
+  return setTimeout(() =&gt; {
+    void pollUrgentListings(adapters, handlers).finally(() =&gt; {
+      handle = scheduleNext();
+    });
+  }, delayMs);
+}</pre>
+
+    <h3>3. A production deployment failure traced to a missing shared library</h3>
+    <p>Headless Chromium launched fine locally, then crashed on Railway with <code>error while loading shared libraries: libglib-2.0.so.0</code>. Railway's default builder builds in two stages, a builder image and a slimmer runtime image it actually ships, and the OS-level libraries Playwright's install step pulled in during the build never made it into that final runtime image. The fix was switching the production build to a <code>Dockerfile</code> based on Playwright's own official image, which ships Chromium together with every library it needs in one image, rather than relying on Railway's default two-stage build to carry them across.</p>
+
+    <h2>Tech stack</h2>
+    <ul class="plain">
+      <li><strong>TypeScript / Node 20</strong>, single worker process running the bot and the poller together, a deliberate choice for a 30-day MVP, not a default</li>
+      <li><strong>PostgreSQL + Prisma</strong> for the schema and typed queries</li>
+      <li><strong>discord.js v14</strong> for the bot, scoped to a Guilds-only intent since it only ever sends messages</li>
+      <li><strong>Playwright</strong>, a real headless Chromium, for the two retailers no lightweight HTTP client can satisfy</li>
+      <li><strong>Vitest</strong>, including fixture-based adapter tests with no network calls and an integration test that runs against a real Postgres database</li>
+    </ul>
+
+    <h2>Product thinking</h2>
+    <p>Before any code, the repo has a product requirements doc, user personas, a database schema doc, a system architecture doc, a Discord-specific strategy doc, a revenue model, a roadmap from MVP to marketplace, and a required retailer anti-bot risk-assessment process that has to be run before any new retailer gets added. The MVP itself is deliberately narrow: sealed-product restock/price alerts only, free public feed, no accounts or billing yet, every feature left out of Phase 1 was a decision, not an oversight.</p>
+
+  </div>
+</main>
+
+<footer class="site">
+  <div class="wrap">
+    <a href="https://github.com/NeuroMint/PikTCG">github.com/NeuroMint/PikTCG</a>
+  </div>
+</footer>
+
+</body>
+</html>
