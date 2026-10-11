@@ -43,6 +43,11 @@
       <span class="tag">Railway</span>
     </div>
 
+    <div class="links">
+      <a class="btn primary" href="https://discord.com/invite/V3JpZ6jzbs">See it live in Discord →</a>
+    </div>
+    <p>Join the server to watch real restock and price-drop alerts post as they happen, in the same channels shown in the screenshots throughout this page.</p>
+
     <div class="callout warn">
       <strong>Source availability</strong>
       The repository is private. PikTCG is a live, revenue-generating service, and its adapter and
@@ -205,6 +210,17 @@ export const ALERTABLE_CHANGE_TYPES: ReadonlySet&lt;ChangeType&gt; = new Set([
       </div>
     </div>
 
+    <div class="shot-row">
+      <figure class="shot">
+        <img src="img/restock-pair.png" alt="Two restock alerts for 30th Celebration sets at Swap Itt, each showing price, link, and in-stock status.">
+        <figcaption><strong>Restock alerts.</strong> The baseline alert type, fired the moment <code>detectChange()</code> classifies a listing as RESTOCK.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/price-drop.png" alt="A single price-drop alert embed for a Reshiram and Charizard GX Premium Collection, showing the old and new price and percentage change.">
+        <figcaption><strong>Price-drop alert.</strong> Shows the dollar and percentage change alongside current stock status, not just the new price.</figcaption>
+      </figure>
+    </div>
+
     <h2>Commands</h2>
     <p>14 slash commands, grouped roughly by who uses them: everyday tracking commands for the community, and operational commands for running the retailer list day to day.</p>
 
@@ -230,41 +246,10 @@ export const ALERTABLE_CHANGE_TYPES: ReadonlySet&lt;ChangeType&gt; = new Set([
       </tbody>
     </table>
 
-    <h2>Live in Discord</h2>
-    <p>Real alerts from the production bot, not mockups.</p>
-
-    <div class="gallery">
-      <figure class="shot">
-        <img src="img/delta-reign-urgent.png" alt="Three restock alerts in a Delta Reigns Alerts channel, the middle one marked URGENT, each tagging the role and showing retailer, price, link, and stock.">
-        <figcaption><strong>Cross-retailer alert channel.</strong> Delta Reign listings are tagged into their own channel regardless of which retailer they're at, with the second alert hitting the urgent tier.</figcaption>
-      </figure>
-      <figure class="shot">
-        <img src="img/price-drop.png" alt="A single price-drop alert embed for a Reshiram and Charizard GX Premium Collection, showing the old and new price and percentage change.">
-        <figcaption><strong>Price-drop alert.</strong> Shows the dollar and percentage change alongside current stock status, not just the new price.</figcaption>
-      </figure>
-      <figure class="shot">
-        <img src="img/digest.png" alt="A daily price-drop digest message listing nine price drops from the last 24 hours across multiple retailers.">
-        <figcaption><strong>Daily digest.</strong> A rollup of every price drop in the last 24 hours, for anyone who doesn't watch the live feed.</figcaption>
-      </figure>
-      <figure class="shot">
-        <img src="img/restock-pair.png" alt="Two restock alerts for 30th Celebration sets at Swap Itt, each showing price, link, and in-stock status.">
-        <figcaption><strong>Restock alerts.</strong> The baseline alert type, fired the moment <code>detectChange()</code> classifies a listing as RESTOCK.</figcaption>
-      </figure>
-      <figure class="shot">
-        <img src="img/alpha-tester-urgent.png" alt="Two URGENT restock alerts pinging an Alpha Tester role, for a 30th Celebration Booster Bundle and a Delta Reign Elite Trainer Box.">
-        <figcaption><strong>Urgent tier in action.</strong> <code>/ping-set-url</code>-flagged listings ping a role directly the moment the fast poller catches them.</figcaption>
-      </figure>
-      <figure class="shot">
-        <img src="img/alert-roles.png" alt="A role-menu message titled Alert Roles, with buttons to toggle pings by retailer or by set.">
-        <figcaption><strong>Self-serve alert roles.</strong> A persistent button menu, posted once, lets members opt into pings by retailer or by set without any admin involvement.</figcaption>
-      </figure>
+    <div class="shot-row">
       <figure class="shot">
         <img src="img/search-results.png" alt="Search results for destined rivals elite trainer box, 11 matching listings split into an in-stock group of 7 and an out-of-stock group of 4.">
-        <figcaption><strong><code>/search</code> results.</strong> Every listing across every retailer matching a name, split into in-stock and out-of-stock groups in one DM.</figcaption>
-      </figure>
-      <figure class="shot">
-        <img src="img/removed-notice.png" alt="An internal notice that a product has been removed from a retailer's website, with the retailer and URL.">
-        <figcaption><strong>Product-removed notice.</strong> Posted once to an internal ops channel the moment a tracked URL starts 404ing, not repeated on every later poll of the same dead listing.</figcaption>
+        <figcaption><strong><code>/search</code> in practice.</strong> Every listing across every retailer matching a name, split into in-stock and out-of-stock groups in one DM.</figcaption>
       </figure>
     </div>
 
@@ -273,6 +258,13 @@ export const ALERTABLE_CHANGE_TYPES: ReadonlySet&lt;ChangeType&gt; = new Set([
     <h3>1. No single scraping strategy works across every retailer</h3>
     <p>Four different retailer platforms needed four different approaches, each confirmed against a real response before being trusted, not assumed from documentation. Shopify stores expose a <code>/products/&#123;handle&#125;.js</code> endpoint built for the storefront's own JS to check live price/stock, found the hard way after the similarly-named <code>.json</code> REST endpoint turned out to silently omit the <code>available</code> field entirely. WooCommerce stores have a clean Store REST API. A Square Online storefront turned up a well-structured JSON product endpoint via its DevTools network tab. And two retailers (EB Games, BIG W) run real bot-management that fingerprints the client itself, not just request headers, blocking even a realistic <code>fetch()</code> with full browser headers, those two needed an actual headless Chromium instance via Playwright.</p>
     <div class="callout"><strong>Design principle</strong>If a page's price or stock signal can't be confidently read, the adapter throws rather than reports a guess. A restock bot's entire value is trust, a single confidently-wrong alert is worse than a missed one.</div>
+
+    <div class="shot-row">
+      <figure class="shot">
+        <img src="img/removed-notice.png" alt="An internal notice that a product has been removed from a retailer's website, with the retailer and URL.">
+        <figcaption><strong>The same honesty applies to delisted products.</strong> One notice to an internal ops channel the moment a tracked URL starts 404ing, not repeated on every later poll of the same dead listing.</figcaption>
+      </figure>
+    </div>
 
     <div class="code-caption">src/ingestion/types.ts — the one interface every adapter implements, regardless of strategy</div>
 <pre>export interface RetailerAdapter {
@@ -360,6 +352,17 @@ export function looksLikeChallengePage(body: string): boolean {
   return CHALLENGE_PAGE_PATTERN.test(body);
 }</pre>
 
+    <div class="shot-row">
+      <figure class="shot">
+        <img src="img/alpha-tester-urgent.png" alt="Two URGENT restock alerts pinging an Alpha Tester role, for a 30th Celebration Booster Bundle and a Delta Reign Elite Trainer Box.">
+        <figcaption><strong>Urgent tier in action.</strong> <code>/ping-set-url</code>-flagged listings ping a role directly the moment the fast poller catches them.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/delta-reign-urgent.png" alt="Three restock alerts in a Delta Reigns Alerts channel, the middle one marked URGENT, each tagging the role and showing retailer, price, link, and stock.">
+        <figcaption><strong>Cross-retailer alert channel.</strong> Delta Reign listings are tagged into their own channel regardless of which retailer they're at, with the second alert hitting the urgent tier.</figcaption>
+      </figure>
+    </div>
+
     <h3>3. A production deployment failure traced to a missing shared library</h3>
     <p>Headless Chromium launched fine locally, then crashed on Railway with <code>error while loading shared libraries: libglib-2.0.so.0</code>. Railway's default builder builds in two stages, a builder image and a slimmer runtime image it actually ships, and the OS-level libraries Playwright's install step pulled in during the build never made it into that final runtime image. The fix was switching the production build to a <code>Dockerfile</code> based on Playwright's own official image, which ships Chromium together with every library it needs in one image, rather than relying on Railway's default two-stage build to carry them across.</p>
 
@@ -374,6 +377,18 @@ export function looksLikeChallengePage(body: string): boolean {
 
     <h2>Product thinking</h2>
     <p>Before any code, the repo has a product requirements doc, user personas, a database schema doc, a system architecture doc, a Discord-specific strategy doc, a revenue model, a roadmap from MVP to marketplace, and a required retailer anti-bot risk-assessment process that has to be run before any new retailer gets added. The MVP itself is deliberately narrow: sealed-product restock/price alerts only, free public feed, no accounts or billing yet, every feature left out of Phase 1 was a decision, not an oversight.</p>
+    <p>That product thinking shows up in the operational features too, not just the roadmap: a daily digest for members who don't want to watch a live feed, and a self-serve role menu so people can narrow alerts to what they actually collect without needing an admin to do it for them.</p>
+
+    <div class="shot-row">
+      <figure class="shot">
+        <img src="img/digest.png" alt="A daily price-drop digest message listing nine price drops from the last 24 hours across multiple retailers.">
+        <figcaption><strong>Daily digest.</strong> A rollup of every price drop in the last 24 hours, for anyone who doesn't watch the live feed.</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="img/alert-roles.png" alt="A role-menu message titled Alert Roles, with buttons to toggle pings by retailer or by set.">
+        <figcaption><strong>Self-serve alert roles.</strong> A persistent button menu, posted once, lets members opt into pings by retailer or by set without any admin involvement.</figcaption>
+      </figure>
+    </div>
 
   </div>
 </main>
