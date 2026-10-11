@@ -177,6 +177,62 @@ code { font-family: var(--mono); }
 }
 .diagram svg { display: block; margin: 0 auto; min-width: 640px; }
 
+.feature-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 20px 0 0;
+}
+.feature {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+.feature h4 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  color: var(--text);
+  font-weight: 700;
+}
+.feature p { margin: 0; font-size: 13.5px; }
+
+table.commands {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin: 18px 0;
+}
+table.commands th {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-family: var(--mono);
+  font-weight: 600;
+}
+table.commands td {
+  text-align: left;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  vertical-align: top;
+}
+table.commands td:first-child { white-space: nowrap; }
+table.commands code { color: var(--accent); font-size: 13px; }
+table.commands tr:last-child td { border-bottom: none; }
+
+.callout.warn { border-left-color: var(--warn); }
+
+@media (max-width: 600px) {
+  .feature-grid { grid-template-columns: 1fr; }
+  table.commands { font-size: 13px; }
+  table.commands td, table.commands th { padding: 8px 10px; }
+}
+
 footer.site {
   border-top: 1px solid var(--border);
   padding: 32px 0;

@@ -43,8 +43,12 @@
       <span class="tag">Railway</span>
     </div>
 
-    <div class="links">
-      <a class="btn primary" href="https://github.com/NeuroMint/PikTCG">View repository</a>
+    <div class="callout warn">
+      <strong>Source availability</strong>
+      The repository is private. PikTCG is a live, revenue-generating service, and its adapter and
+      anti-bot logic is the part of it a competitor could use directly against it, so I've kept the
+      code itself closed and brought the real implementation into this page instead: the sections
+      below include actual source, not paraphrased pseudocode, and the full command and feature list.
     </div>
 
     <h2>Overview</h2>
@@ -131,11 +135,131 @@
     <h3>Data model</h3>
     <p>Postgres via Prisma, centered on <code>Retailer</code>, <code>Product</code>, <code>RetailerProduct</code> (one product tracked at one retailer, with its own URL/external ID), and <code>PriceSnapshot</code> (one row per observation). A pure <code>detectChange()</code> function diffs the latest snapshot against the previous one to classify <code>RESTOCK</code> / <code>OUT_OF_STOCK</code> / <code>PRICE_DROP</code> / <code>PRICE_INCREASE</code>, kept separate from the fetching/polling code so it's trivially unit-testable without a network call or a database.</p>
 
+    <div class="code-caption">src/ingestion/detect.ts — the entire diff is this one pure function</div>
+<pre>export function detectChange(
+  previous: DetectableState | null,
+  current: DetectableState,
+): ChangeType | null {
+  if (!previous) return null;
+  if (!previous.inStock &amp;&amp; current.inStock) return "RESTOCK";
+  if (previous.inStock &amp;&amp; !current.inStock) return "OUT_OF_STOCK";
+  if (current.inStock &amp;&amp; current.price &lt; previous.price) return "PRICE_DROP";
+  if (current.inStock &amp;&amp; current.price &gt; previous.price) return "PRICE_INCREASE";
+  return null;
+}
+
+// Only these two are worth pinging a human about — the rest are still
+// recorded in price_snapshots history but don't fire a Discord alert.
+export const ALERTABLE_CHANGE_TYPES: ReadonlySet&lt;ChangeType&gt; = new Set([
+  "RESTOCK",
+  "PRICE_DROP",
+]);</pre>
+
+    <h2>Key features</h2>
+    <p>The core loop is restock/price alerts, but the bot has grown into the main channel the community runs through. Everything here is a real, shipped feature, not a roadmap item.</p>
+
+    <div class="feature-grid">
+      <div class="feature">
+        <h4>Restock &amp; price-drop alerts</h4>
+        <p>Posts the moment a tracked listing comes back in stock or drops in price, across 22 configured retailers.</p>
+      </div>
+      <div class="feature">
+        <h4>Urgent polling tier</h4>
+        <p>A capped set of high-priority listings get checked on a jittered ~12s cycle instead of the regular multi-minute one.</p>
+      </div>
+      <div class="feature">
+        <h4>Price history</h4>
+        <p>Every observation is kept as a snapshot row, so <code>/pricehistory</code> can chart a listing's real price movement over time, not just its current value.</p>
+      </div>
+      <div class="feature">
+        <h4>Cross-retailer alert channels</h4>
+        <p>A listing can be tagged into a named channel (e.g. a specific set) so alerts for it post somewhere more targeted than the general feed.</p>
+      </div>
+      <div class="feature">
+        <h4>Daily price-drop digest</h4>
+        <p>A scheduled daily summary of price drops, on top of the real-time alerts, for anyone who doesn't want to watch the feed live.</p>
+      </div>
+      <div class="feature">
+        <h4>Per-retailer operational controls</h4>
+        <p>Any retailer can be paused or have its poll interval overridden without a deploy, for when a retailer is temporarily unreliable or newly added.</p>
+      </div>
+      <div class="feature">
+        <h4>Instagram &amp; TCG news feeds</h4>
+        <p>Separate background triggers post new Instagram uploads and TCG news into their own channels, independent of the restock pipeline.</p>
+      </div>
+      <div class="feature">
+        <h4>Pokémon GO event digest</h4>
+        <p>A scheduled digest of upcoming Pokémon GO events, posted to its own channel, serving the overlap between the two communities.</p>
+      </div>
+      <div class="feature">
+        <h4>"Product removed" notices</h4>
+        <p>When a tracked URL starts 404ing, the bot posts one notice to an internal ops channel, once, rather than repeating it every poll cycle forever.</p>
+      </div>
+      <div class="feature">
+        <h4>Test-alert preview</h4>
+        <p><code>/pricedrop</code> renders a real alert embed on demand without needing to wait for (or fake) an actual price change, useful for reviewing formatting changes.</p>
+      </div>
+    </div>
+
+    <h2>Commands</h2>
+    <p>14 slash commands, grouped roughly by who uses them: everyday tracking commands for the community, and operational commands for running the retailer list day to day.</p>
+
+    <table class="commands">
+      <thead>
+        <tr><th>Command</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/track</code></td><td>Start tracking one or more sealed product listings.</td></tr>
+        <tr><td><code>/tracked</code></td><td>List everything currently being tracked, with images.</td></tr>
+        <tr><td><code>/search</code></td><td>Search tracked products by name and get the results in a DM.</td></tr>
+        <tr><td><code>/pricehistory</code></td><td>Price history for a tracked listing (by URL) or every listing matching a name (in a DM).</td></tr>
+        <tr><td><code>/pricedrop</code></td><td>Force-post a test price-drop alert for a URL, to preview the embed. Posts nothing real.</td></tr>
+        <tr><td><code>/currentretailers</code></td><td>List every retailer PikTCG currently tracks.</td></tr>
+        <tr><td><code>/retailer-pause</code></td><td>Pause (or resume) all polling, regular and urgent, for one retailer.</td></tr>
+        <tr><td><code>/retailer-set-interval</code></td><td>Override how often one retailer's regular poll runs, separate from the urgent tier.</td></tr>
+        <tr><td><code>/alert-channel-set</code></td><td>Tag (or untag) a tracked URL into a cross-retailer alert channel (e.g. a specific set).</td></tr>
+        <tr><td><code>/urgent-set-url</code></td><td>Mark (or unmark) an already-tracked URL for fast urgent polling.</td></tr>
+        <tr><td><code>/urgent-remove-url</code></td><td>Un-flag one already-urgent URL, with a reason (e.g. "scalper price").</td></tr>
+        <tr><td><code>/urgent-clear-retailer</code></td><td>Un-flag all urgent listings for one retailer at once.</td></tr>
+        <tr><td><code>/urgent-currentlist</code></td><td>List everything currently flagged for fast urgent polling.</td></tr>
+        <tr><td><code>/ping-set-url</code></td><td>Ping the alpha tester role for this URL's alerts even on the regular, non-urgent, polling schedule.</td></tr>
+      </tbody>
+    </table>
+
     <h2>Challenges</h2>
 
     <h3>1. No single scraping strategy works across every retailer</h3>
     <p>Four different retailer platforms needed four different approaches, each confirmed against a real response before being trusted, not assumed from documentation. Shopify stores expose a <code>/products/&#123;handle&#125;.js</code> endpoint built for the storefront's own JS to check live price/stock, found the hard way after the similarly-named <code>.json</code> REST endpoint turned out to silently omit the <code>available</code> field entirely. WooCommerce stores have a clean Store REST API. A Square Online storefront turned up a well-structured JSON product endpoint via its DevTools network tab. And two retailers (EB Games, BIG W) run real bot-management that fingerprints the client itself, not just request headers, blocking even a realistic <code>fetch()</code> with full browser headers, those two needed an actual headless Chromium instance via Playwright.</p>
     <div class="callout"><strong>Design principle</strong>If a page's price or stock signal can't be confidently read, the adapter throws rather than reports a guess. A restock bot's entire value is trust, a single confidently-wrong alert is worse than a missed one.</div>
+
+    <div class="code-caption">src/ingestion/types.ts — the one interface every adapter implements, regardless of strategy</div>
+<pre>export interface RetailerAdapter {
+  /** Must match a Retailer.slug row in the database. */
+  slug: string;
+  fetchListing(target: ListingTarget): Promise&lt;ListingSnapshot&gt;;
+}
+
+export class AdapterFetchError extends Error {
+  public readonly status?: number;
+  public readonly retryAfterSeconds?: number;
+  /** Set on a 200 response whose body is a bot-challenge page, not real
+   *  data — confirmed real against Mystical Merchants (SiteGround
+   *  Security's CAPTCHA redirect, served with a 200, not a 403/429). */
+  public readonly blocked?: boolean;
+
+  constructor(
+    public readonly retailerSlug: string,
+    public readonly target: ListingTarget,
+    message: string,
+    options?: AdapterFetchErrorOptions,
+  ) {
+    super(`[${retailerSlug}] ${message} (${target.url})`, options);
+    this.name = "AdapterFetchError";
+    this.status = options?.status;
+    this.retryAfterSeconds = options?.retryAfterSeconds;
+    this.blocked = options?.blocked;
+  }
+}</pre>
 
     <h3>2. Fast alerts without tripping anti-bot defenses</h3>
     <p>Hyped restocks need checking far more often than a comfortable background poll rate allows, but checking too often is exactly what gets an IP rate-limited or blocked. The fix was a two-tier poller: a slow regular cycle across everything tracked, and a separate fast ~12-second tier for a small, deliberately-capped set of "urgent" listings, sharing one rate limiter so a block on either tier backs off both.</p>
@@ -150,6 +274,48 @@
       handle = scheduleNext();
     });
   }, delayMs);
+}</pre>
+
+    <p>The regular and urgent tiers share one rate limiter, keyed by retailer, so a block triggered by either tier backs off both. Backoff is exponential, capped, and triggered by either an explicit HTTP status or a "soft block", a 200 response whose body is actually a CAPTCHA/challenge page with no error status at all.</p>
+
+    <div class="code-caption">src/ingestion/rateLimiter.ts — exponential backoff, capped at 15 minutes, overridable by a real Retry-After header</div>
+<pre>const BASE_COOLDOWN_MS = 60_000; // 1 minute
+const MAX_COOLDOWN_MS = 15 * 60_000; // 15 minutes
+
+export function registerRateLimit(
+  retailerSlug: string,
+  retryAfterSeconds?: number,
+  challenge = false,
+): { until: number; firstReport: boolean } {
+  const prev = state.get(retailerSlug);
+  const wasActive = prev != null &amp;&amp; prev.until &gt; Date.now();
+  const streak = (prev?.streak ?? 0) + 1;
+  const backoffMs =
+    retryAfterSeconds != null &amp;&amp; Number.isFinite(retryAfterSeconds)
+      ? retryAfterSeconds * 1000
+      : Math.min(BASE_COOLDOWN_MS * 2 ** (streak - 1), MAX_COOLDOWN_MS);
+  const until = Date.now() + backoffMs;
+  state.set(retailerSlug, { until, streak, challenge });
+  return { until, firstReport: !wasActive };
+}
+
+// 429 is explicit rate limiting; 403 is what EB Games' bot management
+// actually returns for "you've been blocked" instead of a 429.
+export function isBackoffStatus(status: number | undefined): boolean {
+  return status === 429 || status === 403;
+}</pre>
+
+    <p>Detecting that soft-block case (a 200 that isn't real data) needed its own pattern, since there's no status code to key off:</p>
+
+    <div class="code-caption">src/ingestion/adapters/challengeDetection.ts</div>
+<pre>// sgcaptcha is confirmed real — SiteGround Security's redirect, served
+// against Mystical Merchants with a 200. The rest are each vendor's own
+// well-known challenge markup, included pre-emptively.
+const CHALLENGE_PAGE_PATTERN =
+  /sgcaptcha|cf-chl-|cdn-cgi\/challenge-platform|Just a moment|Checking your browser|Attention Required|g-recaptcha|hcaptcha\.com|perimeterx|_px-captcha|Incapsula incident|geo\.captcha-delivery\.com/i;
+
+export function looksLikeChallengePage(body: string): boolean {
+  return CHALLENGE_PAGE_PATTERN.test(body);
 }</pre>
 
     <h3>3. A production deployment failure traced to a missing shared library</h3>
@@ -172,7 +338,7 @@
 
 <footer class="site">
   <div class="wrap">
-    <a href="https://github.com/NeuroMint/PikTCG">github.com/NeuroMint/PikTCG</a>
+    <a href="https://github.com/NeuroMint">github.com/NeuroMint</a>
   </div>
 </footer>
 
